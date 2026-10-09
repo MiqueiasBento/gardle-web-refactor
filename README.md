@@ -1,5 +1,17 @@
 # Gardle
 
+## Executar somente o backend para desenvolvimento
+
+Requer Docker e JDK 11. Configure `JAVA_HOME` para o JDK 11 e execute
+`bash run-backend-local.sh` na raiz do projeto. O script inicia um PostgreSQL
+descartável na porta 15433 e o backend na porta 8080. Confira em
+`http://localhost:8080/management/health` (resposta `UP`). Para parar o banco,
+execute `docker stop gardle-refactor-db`.
+
+As chaves Stripe e o SMTP usados pelo script são valores locais para iniciar a
+API; pagamentos e envio de e-mails exigem credenciais e serviços reais.
+O frontend não precisa ser iniciado para refatorar o backend.
+
 ### Notes for application configuration
 
 In order to use this application, please make sure you copy the `application.properties.example` to either `application.properties` or `application-{profile}.properties` (to overwrite previous values).

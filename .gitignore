@@ -147,6 +147,7 @@ Desktop.ini
 #Local Dev settings
 application-dev.properties
 *.properties
+!.mvn/wrapper/maven-wrapper.properties
 .env
 images/
 com.airgnb*/
