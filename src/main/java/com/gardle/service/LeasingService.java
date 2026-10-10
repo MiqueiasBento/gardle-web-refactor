@@ -180,69 +180,24 @@ public class LeasingService {
         securityHelperService.checkPermissionByGardenFieldId(gardenFieldId);
         GardenField gardenField = gardenFieldRepository.findById(gardenFieldId)
             .orElseThrow(() -> new GardenFieldUnknownServiceException("Unknown Leasing"));
-        if (state == null) {
-            return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList, from, to,
-                null, null, null).map(leasingMapper::toDto);
-        }
-        switch (state) {
-            case PAST:
-                return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList,
-                    from, to, Instant.now(), null, null).map(leasingMapper::toDto);
-            case ONGOING:
-                return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList,
-                    from, to, null, Instant.now(), null).map(leasingMapper::toDto);
-            case FUTURE:
-                return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList,
-                    from, to, null, null, Instant.now()).map(leasingMapper::toDto);
-            default:
-                return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList,
-                    from, to, null, null, null).map(leasingMapper::toDto);
-        }
+        LeasingState.QueryInstants instants = LeasingState.queryInstantsFor(state, Instant.now());
+        return leasingRepository.findAllByGardenFieldAndStatusAndFromAndTo(pageable, gardenField, leasingStatusList,
+            from, to, instants.getPast(), instants.getOngoing(), instants.getFuture()).map(leasingMapper::toDto);
     }
 
     public Page<LeasingDTO> findByUserId(Pageable pageable, Long userId, List<LeasingStatus> leasingStatusList, Instant from, Instant to, LeasingState state) {
         securityHelperService.checkPermission(userId);
         User user = securityHelperService.getLoggedInUser();
-        if (state == null) {
-            return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList, from, to,
-                null, null, null).map(leasingMapper::toDto);
-        }
-        switch (state) {
-            case PAST:
-                return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, Instant.now(), null, null).map(leasingMapper::toDto);
-            case ONGOING:
-                return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, Instant.now(), null).map(leasingMapper::toDto);
-            case FUTURE:
-                return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, null, Instant.now()).map(leasingMapper::toDto);
-            default:
-                return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, null, null).map(leasingMapper::toDto);
-        }
+        LeasingState.QueryInstants instants = LeasingState.queryInstantsFor(state, Instant.now());
+        return leasingRepository.findAllByUserAndStatusAndFromAndTo(pageable, user, leasingStatusList,
+            from, to, instants.getPast(), instants.getOngoing(), instants.getFuture()).map(leasingMapper::toDto);
     }
 
     public Page<LeasingDTO> findByOwner(Pageable pageable, List<LeasingStatus> leasingStatusList, Instant from, Instant to, LeasingState state) {
         User user = securityHelperService.getLoggedInUser();
-        if (state == null) {
-            return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                from, to, null, null, null).map(leasingMapper::toDto);
-        }
-        switch (state) {
-            case PAST:
-                return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, Instant.now(), null, null).map(leasingMapper::toDto);
-            case ONGOING:
-                return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, Instant.now(), null).map(leasingMapper::toDto);
-            case FUTURE:
-                return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, null, Instant.now()).map(leasingMapper::toDto);
-            default:
-                return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
-                    from, to, null, null, null).map(leasingMapper::toDto);
-        }
+        LeasingState.QueryInstants instants = LeasingState.queryInstantsFor(state, Instant.now());
+        return leasingRepository.findAllByOwnerAndStatusAndFromAndTo(pageable, user, leasingStatusList,
+            from, to, instants.getPast(), instants.getOngoing(), instants.getFuture()).map(leasingMapper::toDto);
     }
 
     public List<Leasing> getOverLappingLeasingsForGardenfieldAndUserInInterval(final Long gardenfieldId,
