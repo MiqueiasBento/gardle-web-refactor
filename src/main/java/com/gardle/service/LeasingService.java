@@ -13,6 +13,7 @@ import com.gardle.service.dto.leasing.LeasingDTO;
 import com.gardle.service.dto.leasing.LeasingDateRangeDTO;
 import com.gardle.service.dto.leasing.UpdatingLeasingDTO;
 import com.gardle.service.exception.*;
+import com.gardle.service.leasing.LeasingStatusBehaviors;
 import com.gardle.service.mapper.CreatorLeasingMapper;
 import com.gardle.service.mapper.LeasingMapper;
 import com.gardle.service.mapper.UpdatingLeasingMapper;
@@ -84,46 +85,17 @@ public class LeasingService {
 
     public LeasingDTO updateLeasing(UpdatingLeasingDTO leasingDTO) {
         Leasing updatedLeasing = updatingLeasingMapper.toEntity(leasingDTO);
-        Leasing currentLeasing = leasingRepository.findById(updatedLeasing.getId()).orElseThrow(LeasingNotFoundServiceException::new);
-        if (securityHelperService.loggedInUserIsOwnerOfGardenField(currentLeasing.getGardenField().getId())) {
-            updateLeasingForOwnerOfGardenField(currentLeasing, updatedLeasing);
-        } else {
-            updateLeasingForRequester(currentLeasing, updatedLeasing);
+        final Leasing currentLeasing = leasingRepository.findById(updatedLeasing.getId()).orElseThrow(LeasingNotFoundServiceException::new);
+        boolean owner = securityHelperService.loggedInUserIsOwnerOfGardenField(currentLeasing.getGardenField().getId());
+        if (!owner) {
+            checkIsUpdateAllowedInPeriod(currentLeasing);
+            securityHelperService.checkPermission(currentLeasing.getUser().getId());
         }
-        currentLeasing = leasingRepository.save(currentLeasing);
-        messageService.createLeasingNotification(currentLeasing);
-        return leasingMapper.toDto(currentLeasing);
-    }
-
-    private void updateLeasingForRequester(Leasing currentLeasing, Leasing updatedLeasing) {
-        checkIsUpdateAllowedInPeriod(currentLeasing);
-        securityHelperService.checkPermission(currentLeasing.getUser().getId());
-        // just status change is allowed from open to closed
-        if (currentLeasing.getStatus().equals(LeasingStatus.OPEN) &&
-            (updatedLeasing.getStatus().equals(LeasingStatus.CANCELLED))) {
-            currentLeasing.setStatus(LeasingStatus.CANCELLED);
-            paymentService.cancelPayment(currentLeasing.getPaymentSessionId());
-        } else if (!currentLeasing.getStatus().equals(updatedLeasing.getStatus())) {
-            throw new InvalidLeasingStateServiceException();
-        }
-    }
-
-    private void updateLeasingForOwnerOfGardenField(Leasing currentLeasing, Leasing updatedLeasing) {
-        // just status change is allowed from open to reserved or rejected
-        if (currentLeasing.getStatus().equals(LeasingStatus.OPEN)) {
-            if (updatedLeasing.getStatus().equals(LeasingStatus.RESERVED)) {
-                checkIsUpdateAllowedInPeriod(currentLeasing);
-                currentLeasing.setStatus(LeasingStatus.RESERVED);
-                paymentService.finalizePayment(currentLeasing);
-            } else if (updatedLeasing.getStatus().equals(LeasingStatus.REJECTED)) {
-                currentLeasing.setStatus(LeasingStatus.REJECTED);
-                paymentService.cancelPayment(currentLeasing.getPaymentSessionId());
-            } else {
-                throw new InvalidLeasingStateServiceException();
-            }
-        } else if (!currentLeasing.getStatus().equals(updatedLeasing.getStatus())) {
-            throw new InvalidLeasingStateServiceException();
-        }
+        LeasingStatusBehaviors.forStatus(currentLeasing.getStatus()).transition(currentLeasing, updatedLeasing.getStatus(),
+            owner, () -> checkIsUpdateAllowedInPeriod(currentLeasing), paymentService);
+        Leasing savedLeasing = leasingRepository.save(currentLeasing);
+        messageService.createLeasingNotification(savedLeasing);
+        return leasingMapper.toDto(savedLeasing);
     }
 
     private void checkIsUpdateAllowedInPeriod(Leasing leasing) {
