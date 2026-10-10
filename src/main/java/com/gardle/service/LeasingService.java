@@ -13,6 +13,7 @@ import com.gardle.service.dto.leasing.LeasingDTO;
 import com.gardle.service.dto.leasing.LeasingDateRangeDTO;
 import com.gardle.service.dto.leasing.UpdatingLeasingDTO;
 import com.gardle.service.exception.*;
+import com.gardle.service.event.LeasingChangedEvent;
 import com.gardle.service.leasing.LeasingStatusBehaviors;
 import com.gardle.service.mapper.CreatorLeasingMapper;
 import com.gardle.service.mapper.LeasingMapper;
@@ -22,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +53,7 @@ public class LeasingService {
     private final UpdatingLeasingMapper updatingLeasingMapper;
     private final SecurityHelperService securityHelperService;
     private final PaymentService paymentService;
-    private final MessageService messageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public final Integer UPDATE_DAY_RANGE = 14; //numbers of days where an status update of the leasing is allowed
     public final Integer CREATE_DAY_RANGE = 14; //number of days before start a leasing can be created
@@ -79,7 +81,7 @@ public class LeasingService {
         }
         leasing.setStatus(LeasingStatus.OPEN);
         leasing = leasingRepository.save(leasing);
-        messageService.createLeasingNotification(leasing);
+        eventPublisher.publishEvent(new LeasingChangedEvent(leasing));
         return leasingMapper.toDto(leasing);
     }
 
@@ -94,7 +96,7 @@ public class LeasingService {
         LeasingStatusBehaviors.forStatus(currentLeasing.getStatus()).transition(currentLeasing, updatedLeasing.getStatus(),
             owner, () -> checkIsUpdateAllowedInPeriod(currentLeasing), paymentService);
         Leasing savedLeasing = leasingRepository.save(currentLeasing);
-        messageService.createLeasingNotification(savedLeasing);
+        eventPublisher.publishEvent(new LeasingChangedEvent(savedLeasing));
         return leasingMapper.toDto(savedLeasing);
     }
 

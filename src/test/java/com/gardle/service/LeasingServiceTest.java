@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,6 +33,7 @@ import java.util.Optional;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = GardleApp.class)
@@ -65,6 +67,8 @@ public class LeasingServiceTest {
     private UpdatingLeasingDTO updatingLeasingDTO;
     @MockBean
     private PaymentService paymentService;
+    @MockBean
+    private MessageService messageService;
 
     @BeforeEach
     public void init() {
@@ -157,7 +161,23 @@ public class LeasingServiceTest {
     public void testCreateLeasingSuccessfully() {
         when(leasingRepository.findAllOverlapping(gardenField, requester, leasing.getFrom(), leasing.getTo())).thenReturn(new ArrayList<>());
         when(leasingRepository.save(leasing)).thenReturn(leasing);
+        doAnswer(invocation -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            return null;
+        }).when(messageService).createLeasingNotification(leasing);
         assertThat(leasingService.createLeasing(creatorLeasingDTO, DEFAULT_PAYMENT_SESSION_ID), is(leasingDTO));
+        verify(messageService).createLeasingNotification(leasing);
+    }
+
+    @Test
+    public void testNotificationFailurePropagatesDuringCreation() {
+        when(leasingRepository.findAllOverlapping(gardenField, requester, leasing.getFrom(), leasing.getTo())).thenReturn(new ArrayList<>());
+        when(leasingRepository.save(leasing)).thenReturn(leasing);
+        doThrow(new IllegalStateException("notification failed"))
+            .when(messageService).createLeasingNotification(leasing);
+
+        assertThrows(IllegalStateException.class,
+            () -> leasingService.createLeasing(creatorLeasingDTO, DEFAULT_PAYMENT_SESSION_ID));
     }
 
     @Test
@@ -241,6 +261,7 @@ public class LeasingServiceTest {
         when(leasingRepository.save(newLeasing)).thenReturn(newLeasing);
         assertThat(leasingService.updateLeasing(newUpdatingLeasingDTO), is(newLeasingDTO));
         verify(paymentService, times(1)).cancelPayment(leasing.getPaymentSessionId());
+        verify(messageService).createLeasingNotification(leasing);
     }
 
     @Test
