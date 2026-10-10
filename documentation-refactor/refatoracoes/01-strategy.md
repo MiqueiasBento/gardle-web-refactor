@@ -40,3 +40,12 @@ Os três blocos `switch` foram removidos. O mapeamento entre estado e posição 
 - **Depois:** `JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 ./mvnw -o -Dskip.npm -Dskip.installnodenpm test-compile` — **BUILD SUCCESS**.
 - **Depois:** os quatro métodos de `LeasingStateTest` foram executados diretamente com JDK 8 e as dependências JUnit já presentes, por um pequeno runner temporário em `/tmp` — **4 testes passaram**. As asserções cobrem `PAST`, `ONGOING`, `FUTURE` e `null` usando um instante fixo, verificando os três parâmetros em cada caso.
 - **Depois:** tentativa de executar `LeasingStateTest` pelo Surefire terminou no mesmo artefato ausente; a suíte Maven completa **não foi validada** neste ambiente. Repetir `./mvnw -Dskip.npm -Dskip.installnodenpm -Dtest=LeasingStateTest test` quando o Maven Central estiver acessível.
+
+### Validação posterior — 10/10/2026
+
+Após o download do artefato ausente, os testes foram repetidos com JDK 8 e Surefire 3.5.6 (`-Dmaven-surefire-plugin.version=3.5.6`, sem alterar o `pom.xml`):
+
+- `./mvnw -o -Dmaven-surefire-plugin.version=3.5.6 -Dskip.npm -Dskip.installnodenpm -Dtest=LeasingStateTest test`: **4 testes, 0 falhas, 0 erros, BUILD SUCCESS**.
+- `./mvnw -o -Dmaven-surefire-plugin.version=3.5.6 -Dskip.npm -Dskip.installnodenpm test`: **71 testes, 0 falhas, 0 erros, BUILD SUCCESS**. A suíte inclui os 15 testes de `LeasingServiceTest`.
+
+As falhas anteriores eram de resolução de dependências do ambiente; a execução Maven agora confirma a etapa. Os comandos acima foram executados com `JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64`.
