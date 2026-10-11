@@ -4,6 +4,7 @@ import com.gardle.service.dto.*;
 import com.gardle.service.dto.leasing.CreatorLeasingDTO;
 import com.gardle.service.exception.StripeServiceException;
 import com.gardle.service.mapper.CreatorLeasingMapper;
+import com.gardle.service.stripe.CheckoutSessionRequestBuilder;
 import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
@@ -142,34 +143,13 @@ public class StripeService implements PaymentProviderService {
     }
 
     private Map<String, Object> createCheckoutSessionRequestParamsFromCreatorLeasingDTO(final CreatorLeasingDTO creatorLeasingDTO) {
-        Map<String, Object> paymentIntentData = new HashMap<>();
-        paymentIntentData.put("capture_method", "manual");
-
-        Map<String, String> paymentIntentMetaData = new HashMap<>();
-        paymentIntentMetaData.put("leasing_from", creatorLeasingDTO.getFrom().toString());
-        paymentIntentMetaData.put("leasing_to", creatorLeasingDTO.getTo().toString());
-        paymentIntentMetaData.put("leasing_gardenfield_id", creatorLeasingDTO.getGardenFieldId().toString());
-        paymentIntentMetaData.put("leasing_requester_id", securityHelperService.getLoggedInUser().getId().toString());
-
-        paymentIntentData.put("metadata", paymentIntentMetaData);
-
-        List<Object> paymentMethodTypes = new ArrayList<>();
-        paymentMethodTypes.add("card");
-        List<Object> lineItems = new ArrayList<>();
-        Map<String, Object> lineItem1 = new HashMap<>();
-        lineItem1.put("name", creatorLeasingDTO.getGardenFieldName());
-        lineItem1.put("amount", creatorLeasingMapper.toEntity(creatorLeasingDTO).getPriceSumInCents());
-        lineItem1.put("currency", "eur");
-        lineItem1.put("quantity", 1);
-        lineItems.add(lineItem1);
-        Map<String, Object> params = new HashMap<>();
-        params.put("success_url", paymentSuccessUrl);
-        params.put("cancel_url", paymentCancelUrl);
-        params.put("payment_method_types", paymentMethodTypes);
-        params.put("line_items", lineItems);
-        params.put("payment_intent_data", paymentIntentData);
-
-        return params;
+        return new CheckoutSessionRequestBuilder()
+            .urls(paymentSuccessUrl, paymentCancelUrl)
+            .leasingMetadata(creatorLeasingDTO.getFrom(), creatorLeasingDTO.getTo(),
+                creatorLeasingDTO.getGardenFieldId(), securityHelperService.getLoggedInUser().getId())
+            .lineItem(creatorLeasingDTO.getGardenFieldName(),
+                creatorLeasingMapper.toEntity(creatorLeasingDTO).getPriceSumInCents())
+            .build();
     }
 
     @NotNull

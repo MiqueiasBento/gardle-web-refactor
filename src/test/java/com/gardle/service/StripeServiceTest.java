@@ -17,6 +17,7 @@ import com.stripe.model.checkout.Session;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.Map;
+import java.util.List;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,6 +48,12 @@ public class StripeServiceTest {
 
     @Autowired
     private StripeService stripeService;
+
+    @Value("${stripe.payment-success-url}")
+    private String paymentSuccessUrl;
+
+    @Value("${stripe.payment-cancel-url}")
+    private String paymentCancelUrl;
 
     private CreatorLeasingDTO creatorLeasingDTO;
 
@@ -83,6 +93,44 @@ public class StripeServiceTest {
 
         stripeService.createCheckoutSession(creatorLeasingDTO);
         verify(stripeClient).createCheckoutSession(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testCheckoutRequestParameters() throws StripeException {
+        creatorLeasingDTO.setFrom(Instant.parse("2030-01-01T00:00:00Z"));
+        creatorLeasingDTO.setTo(Instant.parse("2030-01-10T00:00:00Z"));
+        User user = new User();
+        user.setId(2L);
+        when(securityHelperService.getLoggedInUser()).thenReturn(user);
+        when(stripeClient.createCheckoutSession(anyMap())).thenReturn(new Session());
+
+        stripeService.createCheckoutSession(creatorLeasingDTO);
+
+        ArgumentCaptor<Map> captor = ArgumentCaptor.forClass(Map.class);
+        verify(stripeClient).createCheckoutSession(captor.capture());
+        Map<String, Object> request = captor.getValue();
+        assertThat(request).containsOnlyKeys("success_url", "cancel_url", "payment_method_types", "line_items", "payment_intent_data");
+        assertThat(request.get("success_url")).isEqualTo(paymentSuccessUrl);
+        assertThat(request.get("cancel_url")).isEqualTo(paymentCancelUrl);
+        assertThat((List<String>) request.get("payment_method_types")).containsExactly("card");
+
+        Map<String, Object> lineItem = (Map<String, Object>) ((List<?>) request.get("line_items")).get(0);
+        assertThat(lineItem).containsOnlyKeys("name", "amount", "currency", "quantity")
+            .containsEntry("name", "gardenfield name")
+            .containsEntry("amount", 1000).containsEntry("currency", "eur")
+            .containsEntry("quantity", 1);
+        assertThat((List<?>) request.get("line_items")).hasSize(1);
+
+        Map<String, Object> paymentIntent = (Map<String, Object>) request.get("payment_intent_data");
+        assertThat(paymentIntent).containsOnlyKeys("capture_method", "metadata");
+        assertThat(paymentIntent.get("capture_method")).isEqualTo("manual");
+        assertThat((Map<String, String>) paymentIntent.get("metadata"))
+            .containsEntry("leasing_from", "2030-01-01T00:00:00Z")
+            .containsEntry("leasing_to", "2030-01-10T00:00:00Z")
+            .containsEntry("leasing_gardenfield_id", "1")
+            .containsEntry("leasing_requester_id", "2")
+            .hasSize(4);
     }
 
     @Test
