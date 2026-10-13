@@ -1,0 +1,10 @@
+base: refactor (HEAD 867cde5)
+criterio: src/main/java; classes=declaracoes class; linhas=linhas fisicas; condicionais=ocorrencias textuais
+arquivos_java: 187
+declaracoes_class: 170
+linhas_fisicas: 9442
+switch: 1
+else_if: 6
+if_incluindo_else_if: 176
+arquivos_acima_200_linhas: 8
+LeasingService_switch: 0

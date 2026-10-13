@@ -153,3 +153,4 @@ images/
 com.airgnb*/
 lucene/
 resources/analytics/*.env
+documentation-refactor/anotacoes/*

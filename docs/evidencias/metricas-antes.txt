@@ -1,0 +1,10 @@
+base: v1.0-original
+criterio: src/main/java; classes=declaracoes class; linhas=linhas fisicas; condicionais=ocorrencias textuais
+arquivos_java: 179
+declaracoes_class: 162
+linhas_fisicas: 9265
+switch: 4
+else_if: 6
+if_incluindo_else_if: 179
+arquivos_acima_200_linhas: 9
+LeasingService_switch: 3
